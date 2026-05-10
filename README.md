@@ -401,5 +401,3 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318/v1/traces
 ## License
 
 本仓库使用 [MIT License](LICENSE)。
-
-This project is based on and modified from the original work by [Giovanni Pasqualino](https://github.com/GiovanniPasq/agentic-rag-for-dummies).
