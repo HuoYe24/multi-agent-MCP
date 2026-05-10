@@ -209,5 +209,10 @@ class UserStore:
         path.mkdir(parents=True, exist_ok=True)
         return str(path)
 
+    def get_graph_store_dir(self, username: str) -> str:
+        path = self.user_data_dir / self._user_id(username) / "graph_store"
+        path.mkdir(parents=True, exist_ok=True)
+        return str(path)
+
     def get_collection_name(self, username: str) -> str:
         return f"{config.CHILD_COLLECTION}_{self._user_id(username)}"

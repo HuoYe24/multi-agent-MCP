@@ -1692,6 +1692,7 @@ def create_app() -> FastAPI:
             rag_system = RAGSystem(
                 collection_name=user_store.get_collection_name(username),
                 parent_store_path=user_store.get_parent_store_dir(username),
+                graph_store_path=user_store.get_graph_store_dir(username),
             )
             rag_system.initialize()
             doc_manager = DocumentManager(rag_system, markdown_dir=user_store.get_markdown_dir(username))

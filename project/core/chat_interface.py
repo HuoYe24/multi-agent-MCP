@@ -59,8 +59,8 @@ ANSWER_BASIS_BY_NODE = {
         "本轮没有生成最终答案，因为问题需要更多细节。",
     ),
     "aggregate_answers": (
-        "回答依据：当前文档库检索",
-        "本轮回答基于当前文档库检索到的片段生成。",
+        "回答依据：当前知识库检索",
+        "本轮回答基于当前知识库的向量检索、父块证据和 GraphRAG 关系证据生成。",
     ),
 }
 
@@ -420,6 +420,22 @@ class ChatInterface:
             "complaint",
             "after-sales",
         ]
+        policy_question_markers = [
+            "政策",
+            "规则",
+            "条件",
+            "流程",
+            "时效",
+            "多久",
+            "怎么",
+            "如何",
+            "是否",
+            "能不能",
+            "是什么",
+            "policy",
+            "rule",
+            "how to",
+        ]
         compliance_markers = [
             "绕过规则",
             "泄露",
@@ -432,6 +448,8 @@ class ChatInterface:
             "bypass policy",
         ]
 
+        if any(marker in normalized for marker in ticket_markers) and any(marker in normalized for marker in policy_question_markers):
+            return {"route": "document_qa", "clarification_message": ""}
         if re.search(r"(ord|order)[-_]?\d{6,}[-_]?[a-z0-9]*", normalized, re.IGNORECASE) or any(marker in normalized for marker in order_markers):
             return {"route": "order_query", "clarification_message": ""}
         if re.search(r"tk-\d{8}-[a-z0-9]{6}", normalized, re.IGNORECASE) or any(marker in normalized for marker in ticket_markers):

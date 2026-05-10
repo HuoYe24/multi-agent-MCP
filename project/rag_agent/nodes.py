@@ -166,6 +166,22 @@ def _fallback_route(message):
         "complaint",
         "after-sales",
     ]
+    policy_question_markers = [
+        "政策",
+        "规则",
+        "条件",
+        "流程",
+        "时效",
+        "多久",
+        "怎么",
+        "如何",
+        "是否",
+        "能不能",
+        "是什么",
+        "policy",
+        "rule",
+        "how to",
+    ]
     compliance_markers = [
         "绕过规则",
         "泄露",
@@ -178,6 +194,8 @@ def _fallback_route(message):
         "bypass policy",
     ]
 
+    if any(marker in normalized for marker in ticket_markers) and any(marker in normalized for marker in policy_question_markers):
+        return {"route": "document_qa", "clarification_message": ""}
     if find_order_id(normalized) or any(marker in normalized for marker in order_markers):
         return {"route": "order_query", "clarification_message": ""}
     if TicketStore.find_ticket_id(normalized) or any(marker in normalized for marker in ticket_markers):
@@ -710,6 +728,10 @@ def should_compress_context(state: AgentState) -> Command[Literal["compress_cont
                     query = tc["args"].get("query", "")
                     if query:
                         new_ids.add(f"search::{query}")
+                elif tc["name"] == "search_knowledge_graph":
+                    query = tc["args"].get("query", "")
+                    if query:
+                        new_ids.add(f"graph::{query}")
             break
 
     updated_ids = state.get("retrieval_keys", set()) | new_ids
@@ -758,6 +780,9 @@ def compress_context(state: AgentState, llm):
             block += "Parent chunks retrieved:\n" + "\n".join(f"- {p.replace('parent::', '')}" for p in parent_ids) + "\n"
         if search_queries:
             block += "Search queries already run:\n" + "\n".join(f"- {q}" for q in search_queries) + "\n"
+        graph_queries = sorted(r.replace("graph::", "") for r in retrieved_ids if r.startswith("graph::"))
+        if graph_queries:
+            block += "GraphRAG queries already run:\n" + "\n".join(f"- {q}" for q in graph_queries) + "\n"
         new_summary += block
 
     return {"context_summary": new_summary, "messages": [RemoveMessage(id=m.id) for m in messages[1:]]}

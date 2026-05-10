@@ -1,171 +1,211 @@
-# Agentic RAG for Practice
+# Multi-Agent MCP 电商客服系统
 
-一个面向实践的多用户 Multi-Agent MCP 电商客服系统。当前主入口是 FastAPI Web UI，保留文档知识库上传与 RAG 问答能力，并新增电商客服多 Agent、MCP 工具服务、Redis 短期记忆、OpenTelemetry 链路追踪和 Docker Compose 一键启动。
+这是一个 **Multi-Agent MCP 电商客服系统**。
 
-## 项目概览
+当前版本的目标是构造一个可继续扩展的电商智能客服项目骨架。
 
-这个项目不是单纯的“向量检索 + 大模型回答”示例，而是一个已经具备基本产品形态的 RAG 系统，重点解决：
+## 核心功能
 
-- 私有文档问答
-- 多轮对话中的上下文理解
-- 文档库变化后的旧上下文污染
-- 多用户文档与会话隔离
-- 检索链路的可解释展示
-
-当前主能力：
-
-- 用户注册与登录
-- PDF / Markdown 文档上传
-- 电商知识库管理与问答
-- Supervisor / Intent Router 风格的多 Agent 路由
-- MCP 工具服务：订单查询、售后工单创建 / 查询、风险检查
-- Redis 短期记忆，Redis 不可用时自动回退 JSON 文件
-- OpenTelemetry + Jaeger 链路追踪
-- LlamaParse / PyMuPDF4LLM PDF 解析
+- 多用户注册、登录、会话管理
+- 电商客服聊天入口
+- 后台知识库文档上传，支持 PDF / Markdown
+- Qdrant 向量库 + BM25 sparse hybrid retrieval
+- GraphRAG 关系图增强检索
 - Parent-Child Chunking
-- Dense + Sparse Hybrid Retrieval
-- Cross-encoder Reranker
-- LangGraph 编排的 Agentic RAG
-- CRAG-style 检索质量判断
-- 聊天历史持久化与摘要记忆
-- 文档版本感知的线程刷新策略
-
-## 项目来源
-
-本项目基于 Giovanni Pasqualino 的原始仓库继续修改和扩展：
-
-- Original repository: [GiovanniPasq/agentic-rag-for-dummies](https://github.com/GiovanniPasq/agentic-rag-for-dummies)
-
-当前版本在原始思路基础上，重点改造成了：
-
-- FastAPI 主界面与多用户登录体系
-- 文档版本感知的 chat 线程刷新机制
-- 回答依据展示与中间过程卡片
-- CRAG-style 检索质量判断
-- 上传进度、确认弹窗与更完整的文档管理
-- Docker 运行与环境变量加载优化
-
-## 第一阶段改造范围
-
-本阶段完成了电商客服系统的基础竖切片：
-
-- 普通聊天继续由大模型直接回答
-- 订单 / 物流问题路由到 `order_query_agent`，通过 MCP 工具查询模拟订单
-- 退款 / 退货 / 投诉 / 售后问题路由到 `ticket_agent`，通过 MCP 工具创建或查询工单
-- 退款政策、保修规则、物流规则、商品说明等知识问题继续复用现有 Qdrant RAG
-- Documents 页面暂时保留，定位为后台知识库上传入口
-- Docker Compose 启动 `app`、`mcp-server`、`redis`、`jaeger`
+- Cross-encoder / LLM / None 可选 reranker
+- LangGraph 多 Agent 编排
+- MCP 工具服务
+  - `order_query`：模拟订单 / 物流查询
+  - `ticket_create`：创建售后工单
+  - `ticket_query`：查询售后工单
+  - `risk_check`：客服风险检查
+- Redis 短期记忆，Redis 不可用时自动回退 JSON 文件
+- OpenTelemetry 链路追踪
+- Jaeger 可视化追踪
+- Docker Compose 一键启动
 
 ## 当前架构
 
-项目当前可以分成 5 层：
-
-1. Web 层：FastAPI 页面与接口
-2. Core 层：聊天、文档管理、用户状态、RAG 系统装配
-3. Agent 层：LangGraph 图、节点、边、工具、提示词
-4. Storage 层：Qdrant、parent store、本地聊天状态
-5. Model 层：外部 OpenAI-compatible 主模型 + Ollama Embedding
-
-典型链路如下：
-
 ```text
-Upload Document
-  -> PDF/Markdown preprocessing
-  -> parent/child chunking
-  -> child chunks into Qdrant
-  -> parent chunks into parent_store
-  -> documents_version bump
-  -> user asks a question
-  -> LLM Router
-  -> LangGraph document QA flow
-  -> retrieval / rerank / grading / answer
+User
+  -> FastAPI Web UI
+  -> LangGraph Supervisor / Router
+     -> general_chat
+     -> order_query_agent
+        -> MCP client -> MCP server -> order_query
+     -> ticket_agent
+        -> MCP client -> MCP server -> ticket_create / ticket_query
+     -> compliance_agent
+        -> MCP client -> MCP server -> risk_check
+     -> Knowledge RAG Agent
+        -> Qdrant child chunks
+        -> parent_store parent chunks
+        -> graph_store entity/relation graph
+        -> reranker / CRAG grading / answer synthesis
+
+Redis
+  -> short-term memory / ticket state
+
+OpenTelemetry
+  -> Jaeger
 ```
 
 ## 仓库结构
 
 ```text
 .
-├─ project/
-│  ├─ app.py
-│  ├─ config.py
-│  ├─ document_chunker.py
-│  ├─ core/
-│  ├─ db/
-│  ├─ rag_agent/
-│  ├─ ui/
-│  ├─ Dockerfile
-│  └─ README.md
-├─ project_notes/
-├─ notebooks/
-├─ data/                  # 运行后生成的本地用户数据
-├─ qdrant_db/             # 本地 Qdrant 数据目录
+├─ docker-compose.yml              # app + MCP server + Redis + Jaeger
 ├─ requirements.txt
-└─ README.md
+├─ README.md
+└─ project/
+   ├─ app.py                       # FastAPI Web UI 入口
+   ├─ mcp_server_app.py            # 独立 MCP 工具服务入口
+   ├─ config.py                    # 配置中心
+   ├─ document_chunker.py
+   ├─ core/
+   │  ├─ rag_system.py
+   │  ├─ chat_interface.py
+   │  ├─ document_manager.py
+   │  ├─ observability.py          # OpenTelemetry
+   │  └─ user_store.py
+   ├─ db/
+   │  ├─ vector_db_manager.py      # Qdrant
+   │  └─ parent_store_manager.py
+   ├─ ecommerce/
+   │  ├─ tools.py                  # 电商 MCP 工具实现
+   │  ├─ tickets.py                # Redis / JSON fallback 工单存储
+   │  └─ compliance.py
+   ├─ mcp/
+   │  ├─ client.py
+   │  └─ registry.py
+   ├─ memory/
+   │  ├─ short_term.py
+   │  └─ working_memory.py
+   ├─ graph_rag/
+   │  └─ store.py                  # JSON-backed GraphRAG 图谱存储与检索
+   ├─ rag_agent/
+   │  ├─ graph.py
+   │  ├─ nodes.py
+   │  ├─ edges.py
+   │  ├─ tools.py
+   │  └─ prompts.py
+   └─ ui/
+      └─ fastapi_ui.py
 ```
 
-`project/README.md` 是更偏实现与开发视角的说明；本 README 更偏整体使用与部署说明。
+## 运行前准备
 
-## 环境要求
+### 1. 准备 LLM 接口
 
-- 推荐 Python 3.12
-- 兼容 Python 3.11+
-- 推荐使用 `uv` 管理虚拟环境与依赖
-- 可访问的 OpenAI-compatible LLM 接口
-- 本地或外部 Ollama 服务
-- 已准备好 embedding 模型 `nomic-embed-text`
+项目使用 OpenAI-compatible Chat API。你需要准备：
 
-建议先执行：
+- `LLM_API_KEY`
+- `LLM_BASE_URL`
+- `LLM_MODEL`
+
+默认配置偏向 DashScope/OpenAI-compatible：
+
+```text
+LLM_MODEL=qwen-max-0919
+LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+```
+
+### 2. 准备 Ollama Embedding
+
+当前向量检索使用 Ollama embedding，默认模型是 `nomic-embed-text`。
 
 ```bash
 ollama serve
 ollama pull nomic-embed-text
 ```
 
-## 配置方式
+Docker Compose 中默认使用：
 
-当前项目的配置优先级是：
+```text
+OLLAMA_HOST=http://host.docker.internal:11434
+```
 
-1. 进程环境变量
-2. `project/.env`
-3. `project/config.py` 中的默认值
+如果 Ollama 不在宿主机运行，请在 `project/.env` 或 Compose 环境变量中修改。
 
-关键配置项：
+### 3. 创建环境变量文件
 
-- `LLM_MODEL`
-- `LLM_BASE_URL`
-- `LLM_API_KEY`
-- `DENSE_MODEL`
-- `SPARSE_MODEL`
-- `OLLAMA_HOST`
-- `APP_HOST`
-- `APP_PORT`
-- `APP_AUTO_RELOAD`
-
-推荐先复制模板：
+Windows PowerShell:
 
 ```powershell
 Copy-Item project\.env.example project\.env
 ```
 
-然后补齐你自己的 `LLM_API_KEY` 与其它本地配置。
+macOS / Linux:
 
-## 本地启动
+```bash
+cp project/.env.example project/.env
+```
 
-### 推荐方式：使用 uv + Python 3.12
+然后至少填写：
 
-1. 如果你的本机还没有 `Python 3.12`，先让 `uv` 安装
+```env
+LLM_MODEL=qwen-max-0919
+LLM_TEMPERATURE=0
+LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+LLM_API_KEY=your-api-key
+DENSE_MODEL=nomic-embed-text
+SPARSE_MODEL=Qdrant/bm25
+RERANKER_TYPE=cross_encoder
+```
+
+如果你本机首次运行，为了降低模型下载和启动压力，可以先设置：
+
+```env
+RERANKER_TYPE=none
+```
+
+## 推荐运行方式：Docker Compose
+
+Docker Compose 会启动：
+
+- `app`：FastAPI Web UI，端口 `7860`
+- `mcp-server`：MCP 工具服务，端口 `8765`
+- `redis`：短期记忆和工单状态
+- `jaeger`：OpenTelemetry 链路追踪 UI
+
+启动：
+
+```bash
+docker compose up --build
+```
+
+访问：
+
+```text
+应用页面: http://127.0.0.1:7860
+MCP 工具: http://127.0.0.1:8765/tools
+Jaeger:   http://127.0.0.1:16686
+```
+
+停止：
+
+```bash
+docker compose down
+```
+
+如果也想删除 Redis / Qdrant / app 数据卷：
+
+```bash
+docker compose down -v
+```
+
+## 本地开发运行
+
+推荐 Python 3.12。
+
+### 1. 创建虚拟环境
+
+使用 `uv`：
 
 ```bash
 uv python install 3.12
-```
-
-2. 在仓库根目录创建虚拟环境
-
-```bash
 uv venv --python 3.12 .venv
 ```
-
-3. 激活虚拟环境
 
 Windows PowerShell:
 
@@ -179,143 +219,187 @@ macOS / Linux:
 source .venv/bin/activate
 ```
 
-4. 安装依赖
+安装依赖：
 
 ```bash
 uv pip install -r requirements.txt
 ```
 
-5. 准备环境变量文件
-
-```powershell
-Copy-Item project\.env.example project\.env
-```
-
-然后补齐你自己的 `LLM_API_KEY`、`LLM_BASE_URL` 等配置。
-
-6. 启动项目
-
-```bash
-cd project
-python app.py
-```
-
-### 兼容方式：继续使用 pip
-
-如果你不打算使用 `uv`，也可以继续使用原来的方式：
+或使用 pip：
 
 ```bash
 pip install -r requirements.txt
+```
+
+### 2. 启动 Redis
+
+Redis 是推荐项，不是强依赖。没有 Redis 时，系统会回退到 `project/data/short_term_memory.json`。
+
+如果本机有 Docker，可以只启动 Redis：
+
+```bash
+docker run --rm -p 6379:6379 redis:7-alpine
+```
+
+### 3. 启动 MCP 工具服务
+
+新开一个终端：
+
+```bash
+cd project
+python mcp_server_app.py
+```
+
+默认地址：
+
+```text
+http://127.0.0.1:8765/tools
+```
+
+### 4. 启动 Web 应用
+
+再开一个终端：
+
+```bash
 cd project
 python app.py
 ```
 
-默认访问地址：
+默认地址：
 
 ```text
 http://127.0.0.1:7860
 ```
 
-## 使用方式
+## 使用流程
 
-1. 注册并登录
-2. 在 Documents 页面上传 PDF 或 Markdown
-3. 上传时选择：
-   - `Supplement Current Topic`
-   - `Start New Topic`
+1. 打开 `http://127.0.0.1:7860`
+2. 注册并登录
+3. 进入 Documents 页面上传电商知识库文档，例如：
+   - 退换货政策
+   - 退款规则
+   - 物流时效说明
+   - 保修政策
+   - 商品说明书
+   - 活动规则 FAQ
 4. 回到聊天页面提问
 
-前端会展示本轮回答依据，例如：
+上传文档时，系统会同时建立两类索引：
 
-- `回答依据：模型直接生成`
-- `回答依据：当前文档列表`
-- `回答依据：文档库概览`
-- `回答依据：当前文档库检索`
+- Qdrant 向量索引：用于语义检索具体片段。
+- GraphRAG 图谱索引：抽取电商领域实体和共现关系，例如“七天无理由”“退货政策”“耳机商品”“保修政策”等，用于回答政策适用关系、商品规则关联、售后条件组合类问题。
 
-## 文档刷新策略
-
-项目当前采用“文档版本号 + chat 线程版本”机制：
-
-- 文档库发生有效变化时，提升 `documents_version`
-- 每个 chat 保存自己的 `document_context_version`
-- 如果某个 chat 版本落后，它会在下次真正发送消息时切换到新的 `thread_id`
-- 旧聊天记录保留展示，但不再参与后续推理
-
-上传文档时的两个选项分别对应：
-
-- `Supplement Current Topic`
-  只补充材料，不立即刷新所有 chat，采用懒刷新
-- `Start New Topic`
-  立即刷新所有 chat 的检索线程
-
-## Docker
-
-当前推荐方案是：
-
-- `docker-compose.yml` 同时运行 FastAPI 应用、MCP 工具服务、Redis、Jaeger
-- Ollama 作为外部 embedding 服务
-- 主 LLM 通过外部 OpenAI-compatible API 提供
-
-一键启动：
-
-```bash
-docker compose up --build
-```
-
-访问：
+可以测试这些问题：
 
 ```text
-App:    http://127.0.0.1:7860
-MCP:    http://127.0.0.1:8765/tools
-Jaeger: http://127.0.0.1:16686
+你好
 ```
 
-构建镜像：
+走普通聊天。
 
-```bash
-docker build -f project/Dockerfile -t agentic-rag-fastapi .
+```text
+帮我查订单 ORD-20260510-001 到哪了
 ```
 
-推荐运行方式：
+走 `order_query_agent`，通过 MCP 工具查询模拟订单状态。
 
-```bash
-docker run --rm -p 7860:7860 --env-file project/.env agentic-rag-fastapi
+```text
+我要退款，商家一直不处理
 ```
 
-如果你修改了 `project/.env` 后重新构建镜像，容器内的内置配置才会同步更新；如果不想重建，更推荐继续使用 `--env-file` 或 `-e` 显式传入。
+走 `ticket_agent`，通过 MCP 工具创建售后工单。
 
-## Public URL
+```text
+查询工单 TK-20260510-ABC123
+```
 
-当前主 UI 是 FastAPI，不是 Gradio。
+走 `ticket_agent`，通过 MCP 工具查询工单。
 
-- 如果想临时暴露公网地址，可以用 `cloudflared`
-- 如果想长期稳定使用，建议部署到云服务器
+```text
+七天无理由退货规则是什么？
+```
 
-临时暴露示例：
+如果知识库中有相关文档，会走 Knowledge RAG Agent，从 Qdrant 和 GraphRAG 图谱共同检索证据后回答。
 
-```bash
-cloudflared tunnel --url http://127.0.0.1:7860
+```text
+耳机商品和七天无理由退货有什么关系？
+```
+
+这类关系型问题会优先受益于 GraphRAG 的实体和关系证据。
+
+## 关键配置
+
+配置优先级：
+
+1. 进程环境变量
+2. `project/.env`
+3. `project/config.py` 默认值
+
+常用配置：
+
+| 配置 | 说明 | 默认值 |
+|---|---|---|
+| `LLM_MODEL` | Chat 模型名称 | `qwen-max-0919` |
+| `LLM_BASE_URL` | OpenAI-compatible API 地址 | DashScope compatible endpoint |
+| `LLM_API_KEY` | LLM API Key | 空 |
+| `DENSE_MODEL` | Ollama embedding 模型 | `nomic-embed-text` |
+| `SPARSE_MODEL` | Sparse retrieval 模型 | `Qdrant/bm25` |
+| `RERANKER_TYPE` | `cross_encoder` / `llm` / `none` | `cross_encoder` |
+| `GRAPH_RAG_ENABLED` | 是否启用 GraphRAG 图谱检索 | `true` |
+| `GRAPH_RAG_MAX_RESULTS` | GraphRAG 最多返回的证据数量 | `8` |
+| `REDIS_URL` | Redis 地址 | `redis://localhost:6379/0` |
+| `MCP_SERVER_URL` | MCP 工具服务地址 | `http://127.0.0.1:8765/mcp` |
+| `OTEL_ENABLED` | 是否启用 OpenTelemetry | `false` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP endpoint | 空 |
+| `APP_HOST` | Web 服务监听地址 | `127.0.0.1` |
+| `APP_PORT` | Web 服务端口 | `7860` |
+
+## 数据目录
+
+运行后会生成：
+
+```text
+data/                       # 用户、会话、知识库文档等运行数据
+qdrant_db/                  # 本地 Qdrant 数据
+project/data/               # Redis 不可用时的短期记忆 fallback
+data/user_data/<user>/graph_store/   # 每个用户的 GraphRAG 图谱
+```
+
+这些目录已在 `.gitignore` 中忽略。
+
+## OpenTelemetry / Jaeger
+
+Docker Compose 默认启用 OpenTelemetry，并导出到 Jaeger：
+
+```text
+http://127.0.0.1:16686
+```
+
+你可以在 Jaeger 中查看：
+
+- FastAPI 请求
+- 聊天流式响应 span
+- MCP client 调用
+- MCP server JSON-RPC 调用
+
+本地开发时如需启用：
+
+```env
+OTEL_ENABLED=true
+OTEL_SERVICE_NAME=multi-agent-mcp-app
+OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318/v1/traces
 ```
 
 ## 当前边界
 
-- LangGraph checkpoint 仍然是内存型
-- 文档覆盖更新策略还未单独实现
-- 页码级 citation 尚未实现
-- 删除 / 清空文档库后的 chat 默认是懒刷新，不是自动全量重置
-- 当前运行入口以 FastAPI 为准；如果你看到旧版 Gradio 说明，请以本 README 和 `project/app.py` 为准
-
-## 推荐阅读
-
-- [project/README.md](project/README.md)
-- [project_notes/introduction.md](project_notes/introduction.md)
-- [project_notes/memory_architecture_guide.md](project_notes/memory_architecture_guide.md)
-- [project_notes/document_refresh_strategy.md](project_notes/document_refresh_strategy.md)
-- [project_notes/full_project_interview_questions.md](project_notes/full_project_interview_questions.md)
+- MCP 工具服务当前是项目内 JSON-RPC 风格工具服务，已提供 `tools/list` 和 `tools/call`，后续可以继续升级为更完整的 MCP 协议实现。
+- 订单数据是模拟数据，不连接真实电商订单系统。
+- 工单数据使用 Redis，Redis 不可用时回退 JSON 文件。
+- GraphRAG 当前使用轻量 JSON 图谱存储，适合本地学习和小型知识库；生产环境可以继续替换为 Neo4j / NebulaGraph 等图数据库。
+- 文档上传页面目前保留原 UI，定位为知识库管理入口。
 
 ## License
 
-本仓库当前使用 [MIT License](LICENSE)。
+本仓库使用 [MIT License](LICENSE)。
 
 This project is based on and modified from the original work by [Giovanni Pasqualino](https://github.com/GiovanniPasq/agentic-rag-for-dummies).
-The original copyright notice is preserved in the LICENSE file.

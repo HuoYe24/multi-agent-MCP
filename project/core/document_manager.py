@@ -72,6 +72,11 @@ class DocumentManager:
                 collection = self.rag_system.vector_db.get_collection(self.rag_system.collection_name)
                 collection.add_documents(child_chunks)
                 self.rag_system.parent_store.save_many(parent_chunks)
+                self.rag_system.graph_store.index_parent_chunks(
+                    doc_name,
+                    source_name,
+                    parent_chunks,
+                )
                 source_map = self._load_source_map()
                 source_map[doc_name] = source_name
                 self._save_source_map(source_map)
@@ -127,6 +132,7 @@ class DocumentManager:
             )
 
         self.rag_system.vector_db.clear_collection(self.rag_system.collection_name)
+        self.rag_system.graph_store.clear()
 
     def delete_document(self, display_name):
         """
@@ -178,6 +184,8 @@ class DocumentManager:
                 raise RuntimeError(
                     f"Incomplete child chunk deletion: {remaining_vectors} child chunks still remain."
                 )
+
+            self.rag_system.graph_store.delete_document(document_stem)
 
             if document_stem in source_map:
                 source_map.pop(document_stem, None)

@@ -51,14 +51,21 @@ services:
       - APP_HOST=0.0.0.0
       - APP_PORT=7860
       - APP_AUTO_RELOAD=false
+      - LLM_MODEL=${LLM_MODEL:-qwen-max-0919}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - DENSE_MODEL=${DENSE_MODEL:-nomic-embed-text}
+      - SPARSE_MODEL=${SPARSE_MODEL:-Qdrant/bm25}
+      - RERANKER_TYPE=${RERANKER_TYPE:-none}
       - REDIS_URL=redis://redis:6379/0
       - MCP_SERVER_URL=http://mcp-server:8765/mcp
       - OTEL_ENABLED=true
       - OTEL_SERVICE_NAME=multi-agent-mcp-app
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces
       - OLLAMA_HOST=http://host.docker.internal:11434
-    env_file:
-      - project/.env
+      - GRAPH_RAG_ENABLED=${GRAPH_RAG_ENABLED:-true}
+      - GRAPH_RAG_MAX_RESULTS=${GRAPH_RAG_MAX_RESULTS:-8}
     volumes:
       - app_data:/app/data
       - qdrant_data:/app/qdrant_db

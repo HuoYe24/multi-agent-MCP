@@ -8,6 +8,8 @@ from mcp.registry import ToolRegistry
 
 def _mock_order(order_id: str, user_id: str = "") -> dict:
     normalized = (order_id or "").upper()
+    if not normalized:
+        normalized = "ORD-20260510-001"
     seed = sum(ord(ch) for ch in normalized)
     statuses = [
         ("paid", "订单已支付，等待仓库拣货。"),

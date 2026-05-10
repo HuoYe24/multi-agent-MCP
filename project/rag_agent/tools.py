@@ -6,10 +6,11 @@ import config
 
 class ToolFactory:
     
-    def __init__(self, collection, parent_store_manager=None, llm=None):
+    def __init__(self, collection, parent_store_manager=None, llm=None, graph_store=None):
         self.collection = collection
         self.parent_store_manager = parent_store_manager or ParentStoreManager()
         self.llm = llm
+        self.graph_store = graph_store
         self.reranker = None
         if config.RERANKER_ENABLED:
             from core.reranker import get_reranker
@@ -121,10 +122,28 @@ class ToolFactory:
 
         except Exception as e:
             return f"PARENT_RETRIEVAL_ERROR: {str(e)}"
+
+    def _search_knowledge_graph(self, query: str, limit: int = None) -> str:
+        """Search entity and relationship context built from uploaded knowledge-base documents.
+
+        Args:
+            query: User question or retrieval query.
+            limit: Maximum graph evidence items to return.
+        """
+        if not self.graph_store or not config.GRAPH_RAG_ENABLED:
+            return "GRAPH_RAG_DISABLED"
+        try:
+            return self.graph_store.format_search_results(
+                query,
+                max_results=limit or config.GRAPH_RAG_MAX_RESULTS,
+            )
+        except Exception as e:
+            return f"GRAPH_RETRIEVAL_ERROR: {str(e)}"
     
     def create_tools(self) -> List:
         """Create and return the list of tools."""
         search_tool = tool("search_child_chunks")(self._search_child_chunks)
         retrieve_tool = tool("retrieve_parent_chunks")(self._retrieve_parent_chunks)
+        graph_tool = tool("search_knowledge_graph")(self._search_knowledge_graph)
         
-        return [search_tool, retrieve_tool]
+        return [search_tool, retrieve_tool, graph_tool]

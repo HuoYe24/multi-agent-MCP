@@ -7,6 +7,7 @@ from rag_agent.tools import ToolFactory
 from rag_agent.graph import create_agent_graph
 from core.observability import Observability
 from ecommerce.tools import create_ecommerce_tool_registry
+from graph_rag import GraphRAGStore
 from mcp.client import MCPHttpClient
 from memory.short_term import ShortTermMemory
 from memory.working_memory import WorkingMemory
@@ -17,10 +18,16 @@ from langchain_openai import ChatOpenAI
 
 class RAGSystem:
 
-    def __init__(self, collection_name=config.CHILD_COLLECTION, parent_store_path=config.PARENT_STORE_PATH):
+    def __init__(
+        self,
+        collection_name=config.CHILD_COLLECTION,
+        parent_store_path=config.PARENT_STORE_PATH,
+        graph_store_path=config.GRAPH_STORE_PATH,
+    ):
         self.collection_name = collection_name
         self.vector_db = VectorDbManager()
         self.parent_store = ParentStoreManager(parent_store_path)
+        self.graph_store = GraphRAGStore(graph_store_path)
         self.chunker = DocumentChuncker()
         self.observability = Observability()
         self.working_memory = WorkingMemory()
@@ -45,7 +52,7 @@ class RAGSystem:
             )
 
         # llm = ChatOllama(model=config.LLM_MODEL, temperature=config.LLM_TEMPERATURE)
-        tools = ToolFactory(collection, self.parent_store, self.llm).create_tools()
+        tools = ToolFactory(collection, self.parent_store, self.llm, self.graph_store).create_tools()
         self.agent_graph = create_agent_graph(
             self.llm,
             tools,

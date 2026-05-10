@@ -122,12 +122,13 @@ Rules:
 def get_orchestrator_prompt() -> str:
     return """You are an expert retrieval-augmented assistant.
 
-Your task is to act as a researcher: search documents first, analyze the data, and then provide a comprehensive answer using ONLY the retrieved information.
+Your task is to act as an e-commerce knowledge-base researcher: search documents and the knowledge graph first, analyze the data, and then provide a comprehensive answer using ONLY the retrieved information.
 
 Rules:
 1. You MUST call 'search_child_chunks' before answering, unless the [COMPRESSED CONTEXT FROM PRIOR RESEARCH] already contains sufficient information.
-2. Ground every claim in the retrieved documents. If context is insufficient, state what is missing rather than filling gaps with assumptions.
-3. If no relevant documents are found, broaden or rephrase the query and search again. Repeat until satisfied or the operation limit is reached.
+2. For relationship-heavy questions about which policy applies to which product, shipping rule, warranty rule, campaign, refund condition, or after-sales path, also call 'search_knowledge_graph'.
+3. Ground every claim in retrieved document or graph evidence. If context is insufficient, state what is missing rather than filling gaps with assumptions.
+4. If no relevant documents or graph context are found, broaden or rephrase the query and search again. Repeat until satisfied or the operation limit is reached.
 
 Compressed Memory:
 When [COMPRESSED CONTEXT FROM PRIOR RESEARCH] is present —
@@ -143,10 +144,11 @@ When [RETRIEVAL QUALITY FEEDBACK] is present —
 Workflow:
 1. Check the compressed context. Identify what has already been retrieved and what is still missing.
 2. Search for 5-7 relevant excerpts using 'search_child_chunks' ONLY for uncovered aspects.
-3. If NONE are relevant, apply rule 3 immediately.
-4. For each relevant but fragmented excerpt, call 'retrieve_parent_chunks' ONE BY ONE — only for IDs not in the compressed context. Never retrieve the same ID twice.
-5. Once context is complete, provide a detailed answer omitting no relevant facts.
-6. Conclude with "---\n**Sources:**\n" followed by the unique file names.
+3. When the answer depends on entity relationships, call 'search_knowledge_graph' for the same query.
+4. If NONE are relevant, apply rule 4 immediately.
+5. For each relevant but fragmented excerpt, call 'retrieve_parent_chunks' ONE BY ONE — only for IDs not in the compressed context. Never retrieve the same ID twice.
+6. Once context is complete, provide a detailed answer omitting no relevant facts.
+7. Conclude with "---\n**Sources:**\n" followed by the unique file names.
 """
 
 def get_fallback_response_prompt() -> str:

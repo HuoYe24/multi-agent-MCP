@@ -1,5 +1,31 @@
 import os
 
+
+def _env(name: str, default: str = "") -> str:
+    value = os.environ.get(name)
+    if value is None or str(value).strip() == "":
+        return default
+    return str(value).strip()
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = _env(name, "true" if default else "false").lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(_env(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(_env(name, str(default)))
+    except ValueError:
+        return default
+
 # --- Directory Configuration ---
 _PROJECT_DIR = os.path.dirname(__file__)
 _BASE_DIR = os.path.dirname(_PROJECT_DIR)
@@ -13,13 +39,13 @@ CHILD_COLLECTION = "document_child_chunks"
 SPARSE_VECTOR_NAME = "sparse"
 
 # --- Model Configuration ---
-DENSE_MODEL = os.environ.get("DENSE_MODEL", "nomic-embed-text")
-SPARSE_MODEL = os.environ.get("SPARSE_MODEL", "Qdrant/bm25")
-LLM_MODEL = os.environ.get("LLM_MODEL", "qwen-max-0919")
-LLM_TEMPERATURE = float(os.environ.get("LLM_TEMPERATURE", "0"))
+DENSE_MODEL = _env("DENSE_MODEL", "nomic-embed-text")
+SPARSE_MODEL = _env("SPARSE_MODEL", "Qdrant/bm25")
+LLM_MODEL = _env("LLM_MODEL", "qwen-max-0919")
+LLM_TEMPERATURE = _env_float("LLM_TEMPERATURE", 0)
 
-LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
-LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+LLM_API_KEY = _env("LLM_API_KEY", "")
+LLM_BASE_URL = _env("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 
 # --- Agent Configuration ---
 MAX_TOOL_CALLS = 8
@@ -41,33 +67,41 @@ HEADERS_TO_SPLIT_ON = [
 ]
 
 # --- Reranker Configuration ---
-RERANKER_TYPE = os.environ.get("RERANKER_TYPE", "cross_encoder").strip().lower()  # Options: "llm", "cross_encoder", "none"
+RERANKER_TYPE = _env("RERANKER_TYPE", "cross_encoder").lower()  # Options: "llm", "cross_encoder", "none"
 RERANKER_ENABLED = RERANKER_TYPE in {"llm", "cross_encoder"}
-CROSS_ENCODER_RERANKER_MODEL = os.environ.get("CROSS_ENCODER_RERANKER_MODEL", "BAAI/bge-reranker-base")
+CROSS_ENCODER_RERANKER_MODEL = _env("CROSS_ENCODER_RERANKER_MODEL", "BAAI/bge-reranker-base")
 INITIAL_SEARCH_TOP_K = 10  # Initial retrieval top-K
 RERANKER_TOP_M = 5         # Rerank result top-M (M <= K)
 FINAL_OUTPUT_TOP_N = 5     # Final output top-N unique parent chunks
 
 # --- Redis / Short-term Memory ---
-REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
-SHORT_TERM_MEMORY_TTL_SECONDS = int(os.environ.get("SHORT_TERM_MEMORY_TTL_SECONDS", "1800"))
-SHORT_TERM_MEMORY_MAX_TURNS = int(os.environ.get("SHORT_TERM_MEMORY_MAX_TURNS", "20"))
-SHORT_TERM_MEMORY_FALLBACK_PATH = os.environ.get(
+REDIS_URL = _env("REDIS_URL", "redis://localhost:6379/0")
+SHORT_TERM_MEMORY_TTL_SECONDS = _env_int("SHORT_TERM_MEMORY_TTL_SECONDS", 1800)
+SHORT_TERM_MEMORY_MAX_TURNS = _env_int("SHORT_TERM_MEMORY_MAX_TURNS", 20)
+SHORT_TERM_MEMORY_FALLBACK_PATH = _env(
     "SHORT_TERM_MEMORY_FALLBACK_PATH",
     os.path.join(_PROJECT_DIR, "data", "short_term_memory.json"),
 )
 
 # --- MCP Tool Server ---
-MCP_SERVER_HOST = os.environ.get("MCP_SERVER_HOST", "0.0.0.0")
-MCP_SERVER_PORT = int(os.environ.get("MCP_SERVER_PORT", "8765"))
-MCP_SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://127.0.0.1:8765/mcp")
-MCP_CLIENT_TIMEOUT_SECONDS = float(os.environ.get("MCP_CLIENT_TIMEOUT_SECONDS", "3"))
+MCP_SERVER_HOST = _env("MCP_SERVER_HOST", "0.0.0.0")
+MCP_SERVER_PORT = _env_int("MCP_SERVER_PORT", 8765)
+MCP_SERVER_URL = _env("MCP_SERVER_URL", "http://127.0.0.1:8765/mcp")
+MCP_CLIENT_TIMEOUT_SECONDS = _env_float("MCP_CLIENT_TIMEOUT_SECONDS", 3)
 
 # --- OpenTelemetry Observability ---
-OTEL_ENABLED = os.environ.get("OTEL_ENABLED", "false").lower() == "true"
-OTEL_SERVICE_NAME = os.environ.get("OTEL_SERVICE_NAME", "multi-agent-mcp-app")
-OTEL_EXPORTER_OTLP_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-OTEL_CONSOLE_EXPORT = os.environ.get("OTEL_CONSOLE_EXPORT", "false").lower() == "true"
+OTEL_ENABLED = _env_bool("OTEL_ENABLED", False)
+OTEL_SERVICE_NAME = _env("OTEL_SERVICE_NAME", "multi-agent-mcp-app")
+OTEL_EXPORTER_OTLP_ENDPOINT = _env("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+OTEL_CONSOLE_EXPORT = _env_bool("OTEL_CONSOLE_EXPORT", False)
 
 # --- E-commerce Customer Service ---
-ECOMMERCE_DEFAULT_STORE_NAME = os.environ.get("ECOMMERCE_DEFAULT_STORE_NAME", "Demo Store")
+ECOMMERCE_DEFAULT_STORE_NAME = _env("ECOMMERCE_DEFAULT_STORE_NAME", "Demo Store")
+
+# --- GraphRAG ---
+GRAPH_RAG_ENABLED = _env_bool("GRAPH_RAG_ENABLED", True)
+GRAPH_STORE_PATH = _env(
+    "GRAPH_STORE_PATH",
+    os.path.join(_BASE_DIR, "data", "_legacy_default", "graph_store"),
+)
+GRAPH_RAG_MAX_RESULTS = _env_int("GRAPH_RAG_MAX_RESULTS", 8)

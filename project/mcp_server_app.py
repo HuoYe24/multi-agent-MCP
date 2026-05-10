@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import config
 from core.observability import instrument_fastapi_app, start_span
 from ecommerce.tools import create_ecommerce_tool_registry
+from ecommerce.tickets import TicketStore
 from memory.short_term import ShortTermMemory
 
 
@@ -18,7 +19,7 @@ def create_app() -> FastAPI:
     instrument_fastapi_app(app, service_name="multi-agent-mcp-tools")
 
     memory = ShortTermMemory(key_prefix="multi_agent_mcp_tools")
-    registry = create_ecommerce_tool_registry()
+    registry = create_ecommerce_tool_registry(ticket_store=TicketStore(memory))
 
     @app.get("/health")
     async def health():
