@@ -29,7 +29,7 @@ class VectorDbManager:
             if VectorDbManager._shared_dense_embeddings is None:
                 VectorDbManager._shared_dense_embeddings = OllamaEmbeddings(model=config.DENSE_MODEL)
 
-            if VectorDbManager._shared_sparse_embeddings is None:
+            if config.SPARSE_RETRIEVAL_ENABLED and VectorDbManager._shared_sparse_embeddings is None:
                 VectorDbManager._shared_sparse_embeddings = FastEmbedSparse(model_name=config.SPARSE_MODEL)
                 time.sleep(0.5)
 
@@ -40,16 +40,18 @@ class VectorDbManager:
     def create_collection(self, collection_name):
             try:
                 print(f"📝 Creating collection: {collection_name}...")
-                self.__client.create_collection(
-                    collection_name=collection_name,
-                    vectors_config=qmodels.VectorParams(
-                        size=768, 
-                        distance=qmodels.Distance.COSINE
+                collection_config = {
+                    "collection_name": collection_name,
+                    "vectors_config": qmodels.VectorParams(
+                        size=768,
+                        distance=qmodels.Distance.COSINE,
                     ),
-                    sparse_vectors_config={
+                }
+                if config.SPARSE_RETRIEVAL_ENABLED:
+                    collection_config["sparse_vectors_config"] = {
                         config.SPARSE_VECTOR_NAME: qmodels.SparseVectorParams()
-                    },
-                )
+                    }
+                self.__client.create_collection(**collection_config)
                 print(f"✅ Collection created: {collection_name}")
             except Exception as e:
                 error_str = str(e)
@@ -74,14 +76,21 @@ class VectorDbManager:
 
     def get_collection(self, collection_name) -> QdrantVectorStore:
         try:
-            return QdrantVectorStore(
-                client=self.__client,
-                collection_name=collection_name,
-                embedding=self.__dense_embeddings,
-                sparse_embedding=self.__sparse_embeddings,
-                retrieval_mode=RetrievalMode.HYBRID,
-                sparse_vector_name=config.SPARSE_VECTOR_NAME
-            )
+            store_config = {
+                "client": self.__client,
+                "collection_name": collection_name,
+                "embedding": self.__dense_embeddings,
+                "retrieval_mode": RetrievalMode.DENSE,
+            }
+            if config.SPARSE_RETRIEVAL_ENABLED:
+                store_config.update(
+                    {
+                        "sparse_embedding": self.__sparse_embeddings,
+                        "retrieval_mode": RetrievalMode.HYBRID,
+                        "sparse_vector_name": config.SPARSE_VECTOR_NAME,
+                    }
+                )
+            return QdrantVectorStore(**store_config)
         except Exception as e:
             print(f"❌ Error getting collection: {e}")
             raise

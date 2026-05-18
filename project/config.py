@@ -41,6 +41,7 @@ SPARSE_VECTOR_NAME = "sparse"
 # --- Model Configuration ---
 DENSE_MODEL = _env("DENSE_MODEL", "nomic-embed-text")
 SPARSE_MODEL = _env("SPARSE_MODEL", "Qdrant/bm25")
+SPARSE_RETRIEVAL_ENABLED = SPARSE_MODEL.strip().lower() not in {"", "none", "false", "off", "0"}
 LLM_MODEL = _env("LLM_MODEL", "qwen-max-0919")
 LLM_TEMPERATURE = _env_float("LLM_TEMPERATURE", 0)
 

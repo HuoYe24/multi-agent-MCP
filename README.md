@@ -222,13 +222,13 @@ source .venv/bin/activate
 安装依赖：
 
 ```bash
-uv pip install -r requirements.txt
+uv pip install --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 ```
 
 或使用 pip：
 
 ```bash
-pip install -r requirements.txt
+pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 ```
 
 ### 2. 启动 Redis
