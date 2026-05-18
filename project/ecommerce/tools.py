@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 import config
 from ecommerce.tickets import TicketStore
-from mcp.registry import ToolRegistry
+from mcp_bridge.registry import ToolRegistry
 
 
 def _mock_order(order_id: str, user_id: str = "") -> dict:

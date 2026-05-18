@@ -8,7 +8,7 @@ from rag_agent.graph import create_agent_graph
 from core.observability import Observability
 from ecommerce.tools import create_ecommerce_tool_registry
 from graph_rag import GraphRAGStore
-from mcp.client import MCPHttpClient
+from mcp_bridge.client import MCPHttpClient
 from memory.short_term import ShortTermMemory
 from memory.working_memory import WorkingMemory
 
