@@ -56,7 +56,7 @@ services:
       - LLM_BASE_URL=${LLM_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
       - LLM_API_KEY=${LLM_API_KEY:-}
       - DENSE_MODEL=${DENSE_MODEL:-nomic-embed-text}
-      - SPARSE_MODEL=${SPARSE_MODEL:-Qdrant/bm25}
+      - SPARSE_MODEL=${SPARSE_MODEL:-none}
       - RERANKER_TYPE=${RERANKER_TYPE:-none}
       - REDIS_URL=redis://redis:6379/0
       - MCP_SERVER_URL=http://mcp-server:8765/mcp

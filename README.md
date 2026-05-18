@@ -149,8 +149,8 @@ LLM_TEMPERATURE=0
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 LLM_API_KEY=your-api-key
 DENSE_MODEL=nomic-embed-text
-SPARSE_MODEL=Qdrant/bm25
-RERANKER_TYPE=cross_encoder
+SPARSE_MODEL=none
+RERANKER_TYPE=none
 ```
 
 如果你本机首次运行，为了降低模型下载和启动压力，可以先设置：
@@ -172,6 +172,12 @@ Docker Compose 会启动：
 
 ```bash
 docker compose up --build
+```
+
+Docker Compose 中的 app 容器会通过 `http://host.docker.internal:11434` 访问宿主机 Ollama。Windows 上如果容器连不上 Ollama，需要让 Ollama 监听所有网卡后重启 Ollama：
+
+```powershell
+setx OLLAMA_HOST 0.0.0.0:11434
 ```
 
 访问：
