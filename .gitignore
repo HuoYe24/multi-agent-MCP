@@ -32,3 +32,11 @@ project/data/
 project/.gradio/
 
 .external
+# Evaluation files
+project/eval_retrieval.py
+project/eval_report.json
+project/eval_questions*.jsonl
+
+# Temporary / scratch files
+_check_fastmcp.py
+session_index_*.jsonl

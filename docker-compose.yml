@@ -1,4 +1,4 @@
-services:
+﻿services:
   redis:
     image: redis:7-alpine
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
@@ -24,7 +24,7 @@ services:
     build:
       context: .
       dockerfile: project/Dockerfile
-    command: python mcp_server_app.py
+    command: python ${MCP_SERVER_SCRIPT:-mcp_server_app.py}
     working_dir: /app/project
     ports:
       - "8765:8765"
@@ -60,6 +60,8 @@ services:
       - RERANKER_TYPE=${RERANKER_TYPE:-none}
       - REDIS_URL=redis://redis:6379/0
       - MCP_SERVER_URL=http://mcp-server:8765/mcp
+      - MCP_TRANSPORT=${MCP_TRANSPORT:-http}
+      - MCP_USE_LANGCHAIN_TOOLS=${MCP_USE_LANGCHAIN_TOOLS:-true}
       - OTEL_ENABLED=true
       - OTEL_SERVICE_NAME=multi-agent-mcp-app
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces

@@ -1,4 +1,4 @@
-aiofiles==24.1.0
+﻿aiofiles==24.1.0
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.1
@@ -55,6 +55,9 @@ jupyter_client==8.8.0
 jupyter_core==5.9.1
 kiwisolver==1.5.0
 langchain==1.2.3
+langchain-mcp-adapters==0.2.2
+mcp==1.27.2
+fastmcp @ git+https://github.com/PrefectHQ/fastmcp.git
 langchain-core==1.2.27
 langchain-huggingface==1.2.0
 langchain-ollama==1.0.1

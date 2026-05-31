@@ -1,4 +1,4 @@
-from langgraph.graph import START, END, StateGraph
+﻿from langgraph.graph import START, END, StateGraph
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.prebuilt import ToolNode
 from functools import partial
@@ -7,9 +7,10 @@ from .graph_state import State
 from .nodes import *
 from .edges import *
 
-def create_agent_graph(llm, tools_list, mcp_client=None, working_memory=None):
-    llm_with_tools = llm.bind_tools(tools_list,parallel_tool_calls=False)
-    tool_node = ToolNode(tools_list)
+def create_agent_graph(llm, tools_list, mcp_client=None, working_memory=None, mcp_langchain_tools=None):
+    all_tools = tools_list + (mcp_langchain_tools or [])
+    llm_with_tools = llm.bind_tools(all_tools, parallel_tool_calls=False)
+    tool_node = ToolNode(all_tools)
 
     checkpointer = InMemorySaver()
 

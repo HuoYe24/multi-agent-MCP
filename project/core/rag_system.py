@@ -1,4 +1,4 @@
-import uuid
+﻿import uuid
 import config
 from db.vector_db_manager import VectorDbManager
 from db.parent_store_manager import ParentStoreManager
@@ -9,6 +9,7 @@ from core.observability import Observability
 from ecommerce.tools import create_ecommerce_tool_registry
 from graph_rag import GraphRAGStore
 from mcp_bridge.client import MCPHttpClient
+from mcp_bridge.langchain_adapter import MCPToolsAdapter
 from memory.short_term import ShortTermMemory
 from memory.working_memory import WorkingMemory
 
@@ -34,6 +35,8 @@ class RAGSystem:
         self.short_term_memory = ShortTermMemory()
         self.mcp_registry = create_ecommerce_tool_registry()
         self.mcp_client = MCPHttpClient(fallback_registry=self.mcp_registry)
+        self.mcp_langchain_tools = None
+        self.mcp_tools_adapter = None
         self.agent_graph = None
         self.llm = None
         self.thread_id = str(uuid.uuid4())
@@ -53,11 +56,29 @@ class RAGSystem:
 
         # llm = ChatOllama(model=config.LLM_MODEL, temperature=config.LLM_TEMPERATURE)
         tools = ToolFactory(collection, self.parent_store, self.llm, self.graph_store).create_tools()
+
+        # Load MCP tools as LangChain tools via MultiServerMCPClient
+        if config.MCP_USE_LANGCHAIN_TOOLS:
+            try:
+                self.mcp_tools_adapter = MCPToolsAdapter(
+                    transport=config.MCP_TRANSPORT,
+                )
+                self.mcp_langchain_tools = self.mcp_tools_adapter.get_tools_sync()
+                if self.mcp_langchain_tools:
+                    print(
+                        f"Loaded {len(self.mcp_langchain_tools)} MCP tools as LangChain tools "
+                        f"(transport={config.MCP_TRANSPORT})"
+                    )
+            except Exception as exc:
+                print(f"MCP LangChain tools initialization skipped: {exc}")
+                self.mcp_langchain_tools = []
+
         self.agent_graph = create_agent_graph(
             self.llm,
             tools,
             mcp_client=self.mcp_client,
             working_memory=self.working_memory,
+            mcp_langchain_tools=self.mcp_langchain_tools,
         )
 
     def get_config(self):
