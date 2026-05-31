@@ -40,3 +40,5 @@ project/eval_questions*.jsonl
 # Temporary / scratch files
 _check_fastmcp.py
 session_index_*.jsonl
+# Q&A documents (not synced)
+问答/
