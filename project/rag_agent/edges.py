@@ -1,4 +1,4 @@
-from typing import Literal
+﻿from typing import Literal
 from langgraph.types import Send
 from .graph_state import State, AgentState
 from config import MAX_ITERATIONS, MAX_TOOL_CALLS
@@ -7,9 +7,9 @@ def route_after_chat_router(
     state: State,
 ) -> Literal[
     "direct_chat",
-    "direct_chat",
-    "direct_chat",
-    "direct_chat",
+    "order_query_agent",
+    "ticket_agent",
+    "compliance_agent",
     "document_inventory",
     "document_library_overview",
     "empty_documents_response",
@@ -22,11 +22,11 @@ def route_after_chat_router(
     if route == "general_chat":
         return "direct_chat"
     if route == "order_query":
-        return "direct_chat"
+        return "order_query_agent"
     if route == "ticket_support":
-        return "direct_chat"
+        return "ticket_agent"
     if route == "compliance_check":
-        return "direct_chat"
+        return "compliance_agent"
     if route == "document_inventory":
         return "document_inventory"
     if route == "needs_clarification":

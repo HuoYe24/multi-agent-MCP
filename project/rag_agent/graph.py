@@ -5,6 +5,7 @@ from functools import partial
 
 from .graph_state import State
 from .nodes import *
+from .mcp_agents import order_query_agent, ticket_agent, compliance_agent
 from .edges import *
 
 def create_agent_graph(llm, tools_list, working_memory=None, mcp_langchain_tools=None):
@@ -43,6 +44,9 @@ def create_agent_graph(llm, tools_list, working_memory=None, mcp_langchain_tools
     graph_builder = StateGraph(State)
     graph_builder.add_node("chat_router", partial(chat_router, llm=llm))
     graph_builder.add_node("direct_chat", partial(direct_chat, llm=llm))
+    graph_builder.add_node("order_query_agent", partial(order_query_agent, llm=llm, mcp_langchain_tools=mcp_langchain_tools, working_memory=working_memory))
+    graph_builder.add_node("ticket_agent", partial(ticket_agent, llm=llm, mcp_langchain_tools=mcp_langchain_tools, working_memory=working_memory))
+    graph_builder.add_node("compliance_agent", partial(compliance_agent, llm=llm, mcp_langchain_tools=mcp_langchain_tools))
     graph_builder.add_node(document_inventory)
     graph_builder.add_node(empty_documents_response)
     graph_builder.add_node(router_clarification)
@@ -56,6 +60,9 @@ def create_agent_graph(llm, tools_list, working_memory=None, mcp_langchain_tools
     graph_builder.add_edge(START, "chat_router")
     graph_builder.add_conditional_edges("chat_router", route_after_chat_router)
     graph_builder.add_edge("direct_chat", END)
+    graph_builder.add_edge("order_query_agent", END)
+    graph_builder.add_edge("ticket_agent", END)
+    graph_builder.add_edge("compliance_agent", END)
     graph_builder.add_edge("document_inventory", END)
     graph_builder.add_edge("empty_documents_response", END)
     graph_builder.add_edge("router_clarification", END)
