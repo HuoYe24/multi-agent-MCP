@@ -24,7 +24,7 @@
     build:
       context: .
       dockerfile: project/Dockerfile
-    command: python ${MCP_SERVER_SCRIPT:-mcp_server_app.py}
+    command: python mcp_fastmcp_server.py streamable-http
     working_dir: /app/project
     ports:
       - "8765:8765"

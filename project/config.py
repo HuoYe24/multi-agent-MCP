@@ -88,7 +88,7 @@ SHORT_TERM_MEMORY_FALLBACK_PATH = _env(
 MCP_SERVER_HOST = _env("MCP_SERVER_HOST", "0.0.0.0")
 MCP_SERVER_PORT = _env_int("MCP_SERVER_PORT", 8765)
 MCP_SERVER_URL = _env("MCP_SERVER_URL", "http://127.0.0.1:8765/mcp")
-MCP_CLIENT_TIMEOUT_SECONDS = _env_float("MCP_CLIENT_TIMEOUT_SECONDS", 3)
+# # MCP_CLIENT_TIMEOUT_SECONDS was removed
 
 # --- FastMCP / LangChain MCP Integration ---
 MCP_TRANSPORT = _env("MCP_TRANSPORT", "http")  # Options: "http" (recommended on Windows), "stdio" (Unix/macOS), "sse"

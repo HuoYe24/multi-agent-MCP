@@ -42,3 +42,6 @@ _check_fastmcp.py
 session_index_*.jsonl
 # Q&A documents (not synced)
 问答/
+
+# Visualization notebooks
+可视化/

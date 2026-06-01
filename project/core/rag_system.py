@@ -6,9 +6,7 @@ from document_chunker import DocumentChuncker
 from rag_agent.tools import ToolFactory
 from rag_agent.graph import create_agent_graph
 from core.observability import Observability
-from ecommerce.tools import create_ecommerce_tool_registry
 from graph_rag import GraphRAGStore
-from mcp_bridge.client import MCPHttpClient
 from mcp_bridge.langchain_adapter import MCPToolsAdapter
 from memory.short_term import ShortTermMemory
 from memory.working_memory import WorkingMemory
@@ -33,8 +31,7 @@ class RAGSystem:
         self.observability = Observability()
         self.working_memory = WorkingMemory()
         self.short_term_memory = ShortTermMemory()
-        self.mcp_registry = create_ecommerce_tool_registry()
-        self.mcp_client = MCPHttpClient(fallback_registry=self.mcp_registry)
+        self.mcp_client = None  # replaced by mcp_langchain_tools
         self.mcp_langchain_tools = None
         self.mcp_tools_adapter = None
         self.agent_graph = None
@@ -76,7 +73,6 @@ class RAGSystem:
         self.agent_graph = create_agent_graph(
             self.llm,
             tools,
-            mcp_client=self.mcp_client,
             working_memory=self.working_memory,
             mcp_langchain_tools=self.mcp_langchain_tools,
         )

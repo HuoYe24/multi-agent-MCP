@@ -1,9 +1,7 @@
-import re
+﻿import re
 from datetime import datetime, timedelta
 
 import config
-from ecommerce.tickets import TicketStore
-from mcp_bridge.registry import ToolRegistry
 
 
 def _mock_order(order_id: str, user_id: str = "") -> dict:
@@ -61,100 +59,3 @@ def infer_priority(message: str) -> str:
 def find_order_id(text: str) -> str:
     match = re.search(r"(ORD|ORDER)[-_]?\d{6,}[-_]?[A-Z0-9]*", text or "", re.IGNORECASE)
     return match.group(0).upper() if match else ""
-
-
-def create_ecommerce_tool_registry(ticket_store: TicketStore = None) -> ToolRegistry:
-    registry = ToolRegistry()
-    tickets = ticket_store or TicketStore()
-
-    @registry.register(
-        name="order_query",
-        description="Query e-commerce order, shipping, and delivery status.",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "order_id": {"type": "string", "description": "Order ID, such as ORD-20260510-001"},
-                "user_id": {"type": "string", "description": "Current user ID"},
-            },
-            "required": ["order_id"],
-        },
-        category="order",
-    )
-    def order_query(order_id: str, user_id: str = "") -> dict:
-        return _mock_order(order_id, user_id)
-
-    @registry.register(
-        name="ticket_create",
-        description="Create an e-commerce customer support ticket.",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "user_id": {"type": "string"},
-                "category": {"type": "string"},
-                "priority": {"type": "string"},
-                "summary": {"type": "string"},
-                "details": {"type": "string"},
-            },
-            "required": ["details"],
-        },
-        category="ticket",
-    )
-    def ticket_create(
-        details: str,
-        user_id: str = "anonymous",
-        category: str = "",
-        priority: str = "",
-        summary: str = "",
-    ) -> dict:
-        return tickets.create(
-            user_id=user_id,
-            category=category or infer_ticket_category(details),
-            priority=priority or infer_priority(details),
-            summary=summary or details[:80],
-            details=details,
-        )
-
-    @registry.register(
-        name="ticket_query",
-        description="Query an existing customer support ticket by ticket ID.",
-        input_schema={
-            "type": "object",
-            "properties": {"ticket_id": {"type": "string"}},
-            "required": ["ticket_id"],
-        },
-        category="ticket",
-    )
-    def ticket_query(ticket_id: str) -> dict:
-        ticket = tickets.query(ticket_id)
-        return ticket or {"found": False, "ticket_id": ticket_id}
-
-    @registry.register(
-        name="risk_check",
-        description="Check whether an e-commerce customer service action needs manual review.",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "action": {"type": "string"},
-                "amount": {"type": "number"},
-                "user_id": {"type": "string"},
-            },
-            "required": ["action"],
-        },
-        category="compliance",
-    )
-    def risk_check(action: str, amount: float = 0.0, user_id: str = "") -> dict:
-        risk_level = "low"
-        if action in {"refund", "compensation"} and amount >= 500:
-            risk_level = "medium"
-        if amount >= 2000:
-            risk_level = "high"
-        return {
-            "store": config.ECOMMERCE_DEFAULT_STORE_NAME,
-            "user_id": user_id or "anonymous",
-            "action": action,
-            "amount": amount,
-            "risk_level": risk_level,
-            "requires_manual_review": risk_level == "high",
-        }
-
-    return registry
