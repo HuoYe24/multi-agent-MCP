@@ -33,9 +33,9 @@ class MCPToolsAdapter:
         server_script: str | None = None,
     ):
         self.transport = transport
-        self.server_url = server_url or config.MCP_SERVER_URL
+        self.server_url = server_url or config.MCP_GATEWAY_URL
         self.server_script = server_script or str(
-            Path(__file__).resolve().parent.parent / "mcp_fastmcp_server.py"
+            Path(__file__).resolve().parent.parent / "gateway" / "server.py"
         )
         self._client: MultiServerMCPClient | None = None
 
@@ -64,7 +64,7 @@ class MCPToolsAdapter:
         """Connect to the FastMCP server and return tools as LangChain tools (async)."""
         connection = self._build_connection()
         self._client = MultiServerMCPClient(
-            {"ecommerce": connection},
+            {"gateway": connection},
             tool_name_prefix=False,
         )
         logger.info(

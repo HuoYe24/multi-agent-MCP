@@ -20,21 +20,21 @@
     environment:
       - COLLECTOR_OTLP_ENABLED=true
 
-  mcp-server:
+  gateway:
     build:
       context: .
       dockerfile: project/Dockerfile
-    command: python mcp_fastmcp_server.py streamable-http
+    command: python gateway/server.py
     working_dir: /app/project
     ports:
-      - "8765:8765"
+      - "9000:9000"
     environment:
       - MCP_SERVER_HOST=0.0.0.0
-      - MCP_SERVER_PORT=8765
       - REDIS_URL=redis://redis:6379/0
       - OTEL_ENABLED=true
-      - OTEL_SERVICE_NAME=multi-agent-mcp-tools
+      - OTEL_SERVICE_NAME=multi-agent-mcp-gateway
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces
+      - ECOMMERCE_DEFAULT_STORE_NAME=Demo Store
     depends_on:
       redis:
         condition: service_healthy
@@ -59,7 +59,7 @@
       - SPARSE_MODEL=${SPARSE_MODEL:-none}
       - RERANKER_TYPE=${RERANKER_TYPE:-none}
       - REDIS_URL=redis://redis:6379/0
-      - MCP_SERVER_URL=http://mcp-server:8765/mcp
+      - MCP_SERVER_URL=http://gateway:9000/mcp
       - MCP_TRANSPORT=${MCP_TRANSPORT:-http}
       - MCP_USE_LANGCHAIN_TOOLS=${MCP_USE_LANGCHAIN_TOOLS:-true}
       - OTEL_ENABLED=true
@@ -74,7 +74,7 @@
     depends_on:
       redis:
         condition: service_healthy
-      mcp-server:
+      gateway:
         condition: service_started
       jaeger:
         condition: service_started

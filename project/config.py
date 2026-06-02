@@ -87,7 +87,8 @@ SHORT_TERM_MEMORY_FALLBACK_PATH = _env(
 # --- MCP Tool Server ---
 MCP_SERVER_HOST = _env("MCP_SERVER_HOST", "0.0.0.0")
 MCP_SERVER_PORT = _env_int("MCP_SERVER_PORT", 8765)
-MCP_SERVER_URL = _env("MCP_SERVER_URL", "http://127.0.0.1:8765/mcp")
+MCP_SERVER_URL = _env("MCP_SERVER_URL", "http://127.0.0.1:9000/mcp")
+MCP_GATEWAY_URL = _env("MCP_GATEWAY_URL", "http://127.0.0.1:9000/mcp")
 # # MCP_CLIENT_TIMEOUT_SECONDS was removed
 
 # --- FastMCP / LangChain MCP Integration ---
@@ -95,7 +96,7 @@ MCP_TRANSPORT = _env("MCP_TRANSPORT", "http")  # Options: "http" (recommended on
 MCP_USE_LANGCHAIN_TOOLS = _env_bool("MCP_USE_LANGCHAIN_TOOLS", True)
 MCP_FASTMCP_SCRIPT = _env(
     "MCP_FASTMCP_SCRIPT",
-    os.path.join(_PROJECT_DIR, "mcp_fastmcp_server.py"),
+    os.path.join(_PROJECT_DIR, "gateway", "server.py"),
 )
 
 # --- OpenTelemetry Observability ---

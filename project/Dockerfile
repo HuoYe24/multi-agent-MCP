@@ -34,6 +34,6 @@ USER appuser
 
 WORKDIR /app/project
 
-EXPOSE 7860 8765
+EXPOSE 7860 9000
 
 CMD ["python", "app.py"]

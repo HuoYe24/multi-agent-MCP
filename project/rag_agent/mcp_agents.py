@@ -1,6 +1,6 @@
 """MCP Agent nodes — specialized agents for e-commerce customer service."""
 
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
 
 from .graph_state import State
 from ecommerce.compliance import review_customer_service_response
@@ -20,10 +20,15 @@ def _call_mcp_tool(tools, name, args):
 
 
 def order_query_agent(state, llm=None, mcp_langchain_tools=None, working_memory=None):
-    """Dedicated agent for order/shipping queries."""
+    """Dedicated agent for order/shipping queries (LLM bind: order_query)."""
     last_message = state["messages"][-1]
     message = str(last_message.content or "")
     user_id = state.get("user_id", "anonymous")
+
+    # Scope tools to order domain only
+    order_tools = [t for t in (mcp_langchain_tools or []) if t.name == "order_query"]
+    llm_with_tools = llm.bind_tools(order_tools) if order_tools else llm
+
     order_id = find_order_id(message)
     if not order_id:
         for item in reversed(state.get("recent_history", [])):
@@ -32,7 +37,7 @@ def order_query_agent(state, llm=None, mcp_langchain_tools=None, working_memory=
                 break
     if not order_id:
         return {"messages": [AIMessage(content="请提供订单号，例如 `ORD-20260510-001`，我才能帮你查询物流和订单状态。")]}
-    result = _call_mcp_tool(mcp_langchain_tools, "order_query", {"order_id": order_id, "user_id": user_id})
+    result = _call_mcp_tool(order_tools, "order_query", {"order_id": order_id, "user_id": user_id})
     if not result.get("success", True):
         return {"messages": [AIMessage(content=f"订单查询失败：{result.get('error', '工具暂不可用')}")]}
     order = result.get("result", result) if isinstance(result, dict) else result
@@ -54,13 +59,18 @@ def order_query_agent(state, llm=None, mcp_langchain_tools=None, working_memory=
 
 
 def ticket_agent(state, llm=None, mcp_langchain_tools=None, working_memory=None):
-    """Dedicated agent for ticket create/query."""
+    """Dedicated agent for ticket create/query (LLM bind: ticket_create, ticket_query)."""
     last_message = state["messages"][-1]
     message = str(last_message.content or "")
     user_id = state.get("user_id", "anonymous")
+
+    # Scope tools to ticket domain only
+    ticket_tools = [t for t in (mcp_langchain_tools or []) if t.name in ("ticket_create", "ticket_query")]
+    llm_with_tools = llm.bind_tools(ticket_tools) if ticket_tools else llm
+
     ticket_id = TicketStore.find_ticket_id(message)
     if ticket_id:
-        result = _call_mcp_tool(mcp_langchain_tools, "ticket_query", {"ticket_id": ticket_id})
+        result = _call_mcp_tool(ticket_tools, "ticket_query", {"ticket_id": ticket_id})
         if not result.get("success", True):
             return {"messages": [AIMessage(content=f"工单查询失败：{result.get('error', '工具暂不可用')}")]}
         ticket = result.get("result", result) if isinstance(result, dict) else result
@@ -69,7 +79,7 @@ def ticket_agent(state, llm=None, mcp_langchain_tools=None, working_memory=None)
         return {"messages": [AIMessage(content=_format_ticket(ticket))]}
     category = state.get("ticket_category", "") or _infer_category(message)
     priority = state.get("ticket_priority", "") or _infer_priority(message)
-    result = _call_mcp_tool(mcp_langchain_tools, "ticket_create", {"user_id": user_id, "category": category, "priority": priority, "summary": message[:80], "details": message})
+    result = _call_mcp_tool(ticket_tools, "ticket_create", {"user_id": user_id, "category": category, "priority": priority, "summary": message[:80], "details": message})
     if not result.get("success", True):
         return {"messages": [AIMessage(content=f"工单创建失败：{result.get('error', '工具暂不可用')}")]}
     ticket = result.get("result", result) if isinstance(result, dict) else result
@@ -80,12 +90,17 @@ def ticket_agent(state, llm=None, mcp_langchain_tools=None, working_memory=None)
 
 
 def compliance_agent(state, llm=None, mcp_langchain_tools=None):
-    """Dedicated agent for compliance review."""
+    """Dedicated agent for compliance review (LLM bind: risk_check)."""
     last_message = state["messages"][-1]
     message = str(last_message.content or "")
     user_id = state.get("user_id", "anonymous")
+
+    # Scope tools to compliance domain only
+    compliance_tools = [t for t in (mcp_langchain_tools or []) if t.name == "risk_check"]
+    llm_with_tools = llm.bind_tools(compliance_tools) if compliance_tools else llm
+
     review = review_customer_service_response(message)
-    result = _call_mcp_tool(mcp_langchain_tools, "risk_check", {"action": "customer_message_review", "user_id": user_id})
+    result = _call_mcp_tool(compliance_tools, "risk_check", {"action": "customer_message_review", "user_id": user_id})
     if not review["passed"]:
         content = """⚠️ 这类表达可能包含不合规承诺或隐私风险，我不能按原样处理。
 

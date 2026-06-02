@@ -7,7 +7,10 @@
 | File | Purpose |
 |---|---|
 | `app.py` | Starts the FastAPI Web UI on `APP_HOST:APP_PORT` |
-| `mcp_server_app.py` | Starts the MCP-style JSON-RPC tool server on `MCP_SERVER_HOST:MCP_SERVER_PORT` |
+| `gateway/server.py` | Starts the MCP Gateway on port `9000`, aggregating order / ticket / compliance backends |
+| `mcp_order_server.py` | Standalone order MCP server (port `8765`, normally spawned by Gateway) |
+| `mcp_ticket_server.py` | Standalone ticket MCP server (port `8766`, normally spawned by Gateway) |
+| `mcp_compliance_server.py` | Standalone compliance MCP server (port `8767`, normally spawned by Gateway) |
 | `config.py` | Central environment-driven configuration |
 
 ## Main Runtime Flow
@@ -32,7 +35,8 @@ FastAPI UI
 
 | Path | Purpose |
 |---|---|
-| `core/rag_system.py` | Creates Qdrant, parent store, GraphRAG store, MCP client, and LangGraph |
+| `core/rag_system.py` | Creates Qdrant, parent store, GraphRAG store, MCP client (via Gateway), and LangGraph |
+| `gateway/server.py` | MCP Gateway aggregating three backend services via `create_proxy` + `mount` |
 | `core/document_manager.py` | Converts/uploads documents, writes Qdrant child chunks, parent chunks, and GraphRAG graph |
 | `db/vector_db_manager.py` | Local Qdrant hybrid retrieval |
 | `db/parent_store_manager.py` | JSON parent-chunk storage |
@@ -85,11 +89,11 @@ uv venv --python 3.12 .venv
 uv pip install -r requirements.txt
 ```
 
-Start MCP server:
+Start MCP Gateway (spawns order / ticket / compliance backends automatically):
 
 ```bash
 cd project
-python mcp_server_app.py
+python gateway/server.py
 ```
 
 Start app in another terminal:
@@ -116,9 +120,9 @@ docker compose up --build
 Services:
 
 ```text
-App:    http://127.0.0.1:7860
-MCP:    http://127.0.0.1:8765/tools
-Jaeger: http://127.0.0.1:16686
+App:     http://127.0.0.1:7860
+Gateway: http://127.0.0.1:9000/mcp
+Jaeger:  http://127.0.0.1:16686
 ```
 
 ## Important Configuration
@@ -128,7 +132,7 @@ Jaeger: http://127.0.0.1:16686
 | `GRAPH_RAG_ENABLED` | `true` |
 | `GRAPH_RAG_MAX_RESULTS` | `8` |
 | `REDIS_URL` | `redis://localhost:6379/0` |
-| `MCP_SERVER_URL` | `http://127.0.0.1:8765/mcp` |
+| `MCP_SERVER_URL` | `http://127.0.0.1:9000/mcp` (Gateway address) |
 | `OTEL_ENABLED` | `false` |
 | `RERANKER_TYPE` | `cross_encoder` |
 

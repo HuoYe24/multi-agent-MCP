@@ -32,11 +32,14 @@ User
   -> LangGraph Supervisor / Router
      -> general_chat
      -> order_query_agent
-        -> MCP client -> MCP server -> order_query
+        -> MCP client -> MCP Gateway (port 9000)
+           -> order_server (order_query)
      -> ticket_agent
-        -> MCP client -> MCP server -> ticket_create / ticket_query
+        -> MCP client -> MCP Gateway (port 9000)
+           -> ticket_server (ticket_create / ticket_query)
      -> compliance_agent
-        -> MCP client -> MCP server -> risk_check
+        -> MCP client -> MCP Gateway (port 9000)
+           -> compliance_server (risk_check)
      -> Knowledge RAG Agent
         -> Qdrant child chunks
         -> parent_store parent chunks
