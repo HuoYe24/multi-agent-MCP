@@ -1,8 +1,6 @@
-# Multi-Agent MCP 电商客服系统
+﻿# Multi-Agent MCP 电商客服系统
 
-这是一个 **Multi-Agent MCP 电商客服系统**。
-
-当前版本的目标是构造一个可继续扩展的电商智能客服项目骨架。
+这是一个 **Multi-Agent MCP 电商客服系统**，基于 LangGraph 多 Agent 编排 + FastMCP 网关架构。
 
 ## 核心功能
 
@@ -13,38 +11,34 @@
 - GraphRAG 关系图增强检索
 - Parent-Child Chunking
 - Cross-encoder / LLM / None 可选 reranker
-- LangGraph 多 Agent 编排
-- MCP 工具服务
-  - `order_query`：模拟订单 / 物流查询
-  - `ticket_create`：创建售后工单
-  - `ticket_query`：查询售后工单
-  - `risk_check`：客服风险检查
+- LangGraph 多 Agent 编排（Chat Router → 专用 Agent）
+- **FastMCP Gateway 聚合架构**（port 9000），通过 stdio 挂载三个独立后端
+  - `order_server`：订单 / 物流查询
+  - `ticket_server`：创建 / 查询售后工单
+  - `compliance_server`：客服风险检查
+- LangChain MCP 工具桥接（`mcp_bridge`）
 - Redis 短期记忆，Redis 不可用时自动回退 JSON 文件
-- OpenTelemetry 链路追踪
-- Jaeger 可视化追踪
+- 检索质量评估框架（Retrieval eval）
+- OpenTelemetry 链路追踪 + Jaeger 可视化
 - Docker Compose 一键启动
-
 ## 当前架构
 
 ```text
 User
-  -> FastAPI Web UI
+  -> FastAPI Web UI (Gradio)
   -> LangGraph Supervisor / Router
-     -> general_chat
-     -> order_query_agent
-        -> MCP client -> MCP Gateway (port 9000)
-           -> order_server (order_query)
-     -> ticket_agent
-        -> MCP client -> MCP Gateway (port 9000)
-           -> ticket_server (ticket_create / ticket_query)
-     -> compliance_agent
-        -> MCP client -> MCP Gateway (port 9000)
-           -> compliance_server (risk_check)
+     -> direct_chat
+     -> order_query_agent -> MCP Bridge -> MCP Gateway (port 9000)
+                                         -> order_server (order_query)
+     -> ticket_agent      -> MCP Bridge -> MCP Gateway (port 9000)
+                                         -> ticket_server (ticket_create / ticket_query)
+     -> compliance_agent  -> MCP Bridge -> MCP Gateway (port 9000)
+                                         -> compliance_server (risk_check)
      -> Knowledge RAG Agent
         -> Qdrant child chunks
         -> parent_store parent chunks
         -> graph_store entity/relation graph
-        -> reranker / CRAG grading / answer synthesis
+        -> CRAG grading -> reranker -> answer synthesis
 
 Redis
   -> short-term memory / ticket state
@@ -53,47 +47,68 @@ OpenTelemetry
   -> Jaeger
 ```
 
+**MCP Gateway 内部细节：**
+
+```text
+Gateway (port 9000 / FastMCP)
+  +- mount -- order_server (stdio subprocess)    -> order_query
+  +- mount -- ticket_server (stdio subprocess)   -> ticket_create, ticket_query
+  +- mount -- compliance_server (stdio subprocess) -> risk_check
+```
+
+App 通过 `mcp_bridge/langchain_adapter.py` 将 MCP Gateway 的工具转换为 LangChain 可调用的 Tool 对象，注入到对应的 Agent 节点中。
+
 ## 仓库结构
 
 ```text
 .
-├─ docker-compose.yml              # app + MCP server + Redis + Jaeger
-├─ requirements.txt
-├─ README.md
-└─ project/
-   ├─ app.py                       # FastAPI Web UI 入口
-   ├─ mcp_server_app.py            # 独立 MCP 工具服务入口
-   ├─ config.py                    # 配置中心
-   ├─ document_chunker.py
-   ├─ core/
-   │  ├─ rag_system.py
-   │  ├─ chat_interface.py
-   │  ├─ document_manager.py
-   │  ├─ observability.py          # OpenTelemetry
-   │  └─ user_store.py
-   ├─ db/
-   │  ├─ vector_db_manager.py      # Qdrant
-   │  └─ parent_store_manager.py
-   ├─ ecommerce/
-   │  ├─ tools.py                  # 电商 MCP 工具实现
-   │  ├─ tickets.py                # Redis / JSON fallback 工单存储
-   │  └─ compliance.py
-   ├─ mcp/
-   │  ├─ client.py
-   │  └─ registry.py
-   ├─ memory/
-   │  ├─ short_term.py
-   │  └─ working_memory.py
-   ├─ graph_rag/
-   │  └─ store.py                  # JSON-backed GraphRAG 图谱存储与检索
-   ├─ rag_agent/
-   │  ├─ graph.py
-   │  ├─ nodes.py
-   │  ├─ edges.py
-   │  ├─ tools.py
-   │  └─ prompts.py
-   └─ ui/
-      └─ fastapi_ui.py
++- docker-compose.yml              # app + gateway + Redis + Jaeger
++- requirements.txt
++- README.md
++- project/
+   +- app.py                       # FastAPI Web UI 入口
+   +- config.py                    # 配置中心
+   +- utils.py                     # 通用工具函数
+   +- document_chunker.py          # Parent-Child 文档分块
+   +- core/
+   |  +- rag_system.py             # RAG 检索与回答合成
+   |  +- chat_interface.py         # 聊天逻辑
+   |  +- document_manager.py       # 文档管理
+   |  +- observability.py          # OpenTelemetry
+   |  +- reranker.py               # Cross-encoder / LLM reranker
+   |  +- user_store.py             # 用户存储
+   +- db/
+   |  +- vector_db_manager.py      # Qdrant 向量库管理
+   |  +- parent_store_manager.py   # Parent chunk 存储
+   +- ecommerce/
+   |  +- tools.py                  # 订单/工单/风险 MCP 工具实现
+   |  +- tickets.py                # Redis / JSON fallback 工单存储
+   |  +- compliance.py             # 风险审查逻辑
+   +- gateway/
+   |  +- server.py                 # FastMCP Gateway（聚合三个后端）
+   +- mcp_bridge/
+   |  +- langchain_adapter.py      # LangChain MCP 工具适配器
+   +- memory/
+   |  +- short_term.py             # Redis / JSON fallback 短期记忆
+   |  +- working_memory.py         # 工作记忆
+   +- graph_rag/
+   |  +- store.py                  # JSON-backed GraphRAG 图谱存储与检索
+   +- rag_agent/
+   |  +- graph.py                  # LangGraph 图定义
+   |  +- graph_state.py            # State 定义
+   |  +- nodes.py                  # 各 Agent 节点逻辑
+   |  +- edges.py                  # 条件路由
+   |  +- mcp_agents.py             # MCP 专用 Agent 封装
+   |  +- tools.py                  # 本地工具函数
+   |  +- schemas.py                # Pydantic 模型
+   |  +- prompts.py                # 提示词模板
+   +- ui/
+   |  +- fastapi_ui.py             # Gradio / FastAPI Web UI
+   +- mcp_order_server.py          # 独立订单 MCP 服务器（stdio）
+   +- mcp_ticket_server.py         # 独立工单 MCP 服务器（stdio）
+   +- mcp_compliance_server.py     # 独立风控 MCP 服务器（stdio）
+   +- mcp_fastmcp_server.py        # 单体 MCP 服务器（全部工具，可选）
+   +- eval_retrieval.py            # 检索质量评估脚本
 ```
 
 ## 运行前准备
@@ -167,7 +182,7 @@ RERANKER_TYPE=none
 Docker Compose 会启动：
 
 - `app`：FastAPI Web UI，端口 `7860`
-- `mcp-server`：MCP 工具服务，端口 `8765`
+- `gateway`：FastMCP Gateway（聚合订单/工单/风控服务），端口 `9000`
 - `redis`：短期记忆和工单状态
 - `jaeger`：OpenTelemetry 链路追踪 UI
 
@@ -186,9 +201,9 @@ setx OLLAMA_HOST 0.0.0.0:11434
 访问：
 
 ```text
-应用页面: http://127.0.0.1:7860
-MCP 工具: http://127.0.0.1:8765/tools
-Jaeger:   http://127.0.0.1:16686
+应用页面:   http://127.0.0.1:7860
+MCP Gateway: http://127.0.0.1:9000/mcp
+Jaeger:     http://127.0.0.1:16686
 ```
 
 停止：
@@ -197,22 +212,13 @@ Jaeger:   http://127.0.0.1:16686
 docker compose down
 ```
 
-如果也想删除 Redis / Qdrant / app 数据卷：
-
-```bash
-docker compose down -v
-```
-
 ## 本地开发运行
 
-推荐 Python 3.12。
+### 1. 创建并激活虚拟环境
 
-### 1. 创建虚拟环境
-
-使用 `uv`：
+推荐使用 Python 3.12 + uv（或 pip）：
 
 ```bash
-uv python install 3.12
 uv venv --python 3.12 .venv
 ```
 
@@ -250,19 +256,19 @@ Redis 是推荐项，不是强依赖。没有 Redis 时，系统会回退到 `pr
 docker run --rm -p 6379:6379 redis:7-alpine
 ```
 
-### 3. 启动 MCP 工具服务
+### 3. 启动 MCP Gateway
 
-新开一个终端：
+新开一个终端，启动 Gateway（会通过 stdio 自动拉起三个后端服务器）：
 
 ```bash
 cd project
-python mcp_server_app.py
+python gateway/server.py
 ```
 
 默认地址：
 
 ```text
-http://127.0.0.1:8765/tools
+http://127.0.0.1:9000/mcp
 ```
 
 ### 4. 启动 Web 应用
@@ -296,7 +302,7 @@ http://127.0.0.1:7860
 上传文档时，系统会同时建立两类索引：
 
 - Qdrant 向量索引：用于语义检索具体片段。
-- GraphRAG 图谱索引：抽取电商领域实体和共现关系，例如“七天无理由”“退货政策”“耳机商品”“保修政策”等，用于回答政策适用关系、商品规则关联、售后条件组合类问题。
+- GraphRAG 图谱索引：抽取电商领域实体和共现关系，例如"七天无理由""退货政策""耳机商品""保修政策"等，用于回答政策适用关系、商品规则关联、售后条件组合类问题。
 
 可以测试这些问题：
 
@@ -310,19 +316,19 @@ http://127.0.0.1:7860
 帮我查订单 ORD-20260510-001 到哪了
 ```
 
-走 `order_query_agent`，通过 MCP 工具查询模拟订单状态。
+走 `order_query_agent`，通过 MCP Gateway 查询模拟订单状态。
 
 ```text
 我要退款，商家一直不处理
 ```
 
-走 `ticket_agent`，通过 MCP 工具创建售后工单。
+走 `ticket_agent`，通过 MCP Gateway 创建售后工单。
 
 ```text
 查询工单 TK-20260510-ABC123
 ```
 
-走 `ticket_agent`，通过 MCP 工具查询工单。
+走 `ticket_agent`，通过 MCP Gateway 查询工单。
 
 ```text
 七天无理由退货规则是什么？
@@ -357,7 +363,10 @@ http://127.0.0.1:7860
 | `GRAPH_RAG_ENABLED` | 是否启用 GraphRAG 图谱检索 | `true` |
 | `GRAPH_RAG_MAX_RESULTS` | GraphRAG 最多返回的证据数量 | `8` |
 | `REDIS_URL` | Redis 地址 | `redis://localhost:6379/0` |
-| `MCP_SERVER_URL` | MCP 工具服务地址 | `http://127.0.0.1:8765/mcp` |
+| `MCP_SERVER_URL` | MCP 工具服务地址 | `http://127.0.0.1:9000/mcp` |
+| `MCP_GATEWAY_URL` | MCP Gateway 地址（同 MCP_SERVER_URL） | `http://127.0.0.1:9000/mcp` |
+| `MCP_TRANSPORT` | MCP 传输协议（http / stdio / sse） | `http` |
+| `MCP_USE_LANGCHAIN_TOOLS` | 是否使用 LangChain MCP 工具适配 | `true` |
 | `OTEL_ENABLED` | 是否启用 OpenTelemetry | `false` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP endpoint | 空 |
 | `APP_HOST` | Web 服务监听地址 | `127.0.0.1` |
@@ -388,8 +397,8 @@ http://127.0.0.1:16686
 
 - FastAPI 请求
 - 聊天流式响应 span
-- MCP client 调用
-- MCP server JSON-RPC 调用
+- MCP Gateway 调用
+- MCP server 内部调用
 
 本地开发时如需启用：
 
@@ -399,13 +408,22 @@ OTEL_SERVICE_NAME=multi-agent-mcp-app
 OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318/v1/traces
 ```
 
+## 检索质量评估
+
+项目内置了检索质量评估脚本 `project/eval_retrieval.py`，支持对 RAG 管道的检索质量进行评估。评估数据格式见 `project/eval_questions.example.jsonl`。
+
+```bash
+cd project
+python eval_retrieval.py
+```
+
 ## 当前边界
 
-- MCP 工具服务当前是项目内 JSON-RPC 风格工具服务，已提供 `tools/list` 和 `tools/call`，后续可以继续升级为更完整的 MCP 协议实现。
-- 订单数据是模拟数据，不连接真实电商订单系统。
-- 工单数据使用 Redis，Redis 不可用时回退 JSON 文件。
-- GraphRAG 当前使用轻量 JSON 图谱存储，适合本地学习和小型知识库；生产环境可以继续替换为 Neo4j / NebulaGraph 等图数据库。
-- 文档上传页面目前保留原 UI，定位为知识库管理入口。
+- **MCP Gateway**：当前基于 FastMCP `create_proxy` 通过 stdio 挂载三个独立后端服务器，对外暴露 `tools/list` 和 `tools/call` JSON-RPC 端点。后续可升级为完整的 MCP 协议实现。
+- **订单数据**：模拟数据，不连接真实电商订单系统。
+- **工单数据**：使用 Redis，Redis 不可用时回退 JSON 文件。
+- **GraphRAG**：当前使用轻量 JSON 图谱存储，适合本地学习和小型知识库；生产环境可以替换为 Neo4j / NebulaGraph 等图数据库。
+- **单体 MCP 服务器**：`mcp_fastmcp_server.py` 将全部工具打包在一个 FastMCP 实例中，可选替代 Gateway 架构用于简化调试。
 
 ## License
 
