@@ -10,10 +10,34 @@ from ecommerce.tools import find_order_id
 
 def _call_mcp_tool(tools, name, args):
     """Call an MCP tool by name from the LangChain tools list."""
+    import asyncio
+    import json
     for t in tools or []:
         if t.name == name:
             try:
-                return t.invoke(args)
+                # langchain_mcp_adapters creates async-only StructuredTool (coroutine only).
+                # It returns (content_blocks, artifact) due to response_format="content_and_artifact".
+                raw = asyncio.run(t.ainvoke(args))
+                if isinstance(raw, tuple):
+                    content = raw[0]
+                else:
+                    content = raw
+                if hasattr(content, "content"):
+                    text = str(content.content or "")
+                elif isinstance(content, list):
+                    texts = []
+                    for block in content:
+                        if isinstance(block, str):
+                            texts.append(block)
+                        elif isinstance(block, dict) and block.get("type") == "text":
+                            texts.append(block.get("text", ""))
+                    text = "\n".join(texts)
+                else:
+                    text = str(content)
+                if text.strip():
+                    parsed = json.loads(text)
+                    return parsed if isinstance(parsed, dict) else {"result": parsed}
+                return {"success": True, "result": None}
             except Exception as e:
                 return {"success": False, "error": str(e), "result": None}
     return {"success": False, "error": f"Tool '{name}' not available", "result": None}
@@ -141,3 +165,5 @@ def _infer_priority(text):
     if any(w in t for w in ["诈骗", "盗刷", "紧急", "urgent"]): return "urgent"
     if any(w in t for w in ["投诉", "超时", "严重"]): return "high"
     return "medium"
+
+

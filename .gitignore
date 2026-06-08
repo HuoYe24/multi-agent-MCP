@@ -1,4 +1,4 @@
-.DS_Store
+﻿.DS_Store
 Thumbs.db
 __pycache__/
 *.py[cod]
@@ -45,3 +45,5 @@ session_index_*.jsonl
 
 # Visualization notebooks
 可视化/
+
+_v*.py

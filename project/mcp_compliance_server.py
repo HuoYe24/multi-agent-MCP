@@ -34,4 +34,8 @@ def risk_check(action: str, amount: float = 0.0, user_id: str = "") -> dict:
 
 if __name__ == "__main__":
     transport = sys.argv[1] if len(sys.argv) > 1 else "stdio"
-    mcp.run(transport=transport, host=config.MCP_SERVER_HOST, port=8767)
+    if transport == 'stdio':
+        mcp.run(transport=transport)
+    else:
+        mcp.run(transport=transport, host=config.MCP_SERVER_HOST, port=8767)
+

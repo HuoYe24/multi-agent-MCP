@@ -29,8 +29,8 @@ def order_query(order_id: str, user_id: str = "") -> dict:
 
 if __name__ == "__main__":
     transport = sys.argv[1] if len(sys.argv) > 1 else "stdio"
-    mcp.run(
-        transport=transport,
-        host=config.MCP_SERVER_HOST,
-        port=8765,
-    )
+    if transport == 'stdio':
+        mcp.run(transport=transport)
+    else:
+        mcp.run(transport=transport, host=config.MCP_SERVER_HOST, port=8765)
+

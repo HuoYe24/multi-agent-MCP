@@ -1,4 +1,4 @@
-﻿import os
+import os
 import sys
 from dotenv import load_dotenv
 
@@ -106,8 +106,8 @@ def risk_check(action: str, amount: float = 0.0, user_id: str = "") -> dict:
 if __name__ == "__main__":
     transport = sys.argv[1] if len(sys.argv) > 1 else "stdio"
     print(f"Starting FastMCP server with '{transport}' transport...")
-    mcp.run(
-        transport=transport,
-        host=config.MCP_SERVER_HOST,
-        port=config.MCP_SERVER_PORT,
-    )
+    if transport == 'stdio':
+        mcp.run(transport=transport)
+    else:
+        mcp.run(transport=transport, host=config.MCP_SERVER_HOST, port=config.MCP_SERVER_PORT)
+
